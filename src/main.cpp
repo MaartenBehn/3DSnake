@@ -16,21 +16,32 @@ int Button_Pins[Button_Pins_Size] = {A5,A4,2,A6,3,A7,A3};
 #define Board_Size 3
 int board[3][3][3];
 vec3 head;
-int aktiveButton; // 0 x+, 1 x-, 2 y+, 3 y-, 4 z+, 5 z-,
+int aktiveButton = 0; // 0 x+, 1 x-, 2 y+, 3 y-, 4 z+, 5 z-,
 int snakeLenght;
 bool newApple;
 bool death;
+
 vec3 emptiCells[Board_Size * Board_Size * Board_Size];
 int emptiCellPointer;
 
+#define Matrix_Delay 1
+#define Max_Head_Counter 50
+#define Max_Apple_Counter 100
+#define Max_Death_Counter 300
+int matrix[3][3][3];
+int matrixCounter = 0;
+#define Max_Matrix_Counter 10000
+
 void setAllLEDS(bool state){
-  for (size_t i = 0; i < X_Pins_Size; i++)
+  for (size_t x = 0; x < Board_Size; x++)
   {
-    digitalWrite(X_Pins[i], !state);
-  }
-  for (size_t i = 0; i < Y_Pins_Size; i++)
-  {
-    digitalWrite(Y_Pins[i], state);
+    for (size_t y = 0; y < Board_Size; y++)
+    {
+      for (size_t z = 0; z < Board_Size; z++)
+      {
+        matrix[x][y][z] = state;
+      }
+    }
   }
 }
 
@@ -51,23 +62,36 @@ void newGame(){
     }
   }
   board[head.x][head.y][head.z] = 1;
-
-  setAllLEDS(1);
-  delay(200);
-  setAllLEDS(0);
-  delay(500);
-  setAllLEDS(1);
-  delay(200);
-  setAllLEDS(0);
-
   death = 0;
 }
 
-ISR(TIMER1_COMPA_vect){
+void pushMatrix(){
+  for (size_t x = 0; x < Board_Size; x++)
+  {
+    for (size_t y = 0; y < Board_Size; y++)
+    {
+      for (size_t z = 0; z < Board_Size; z++)
+      {
+        matrix[x][y][z] = 0;
 
-  if(death){
-    return;
+        if(death){
+           matrix[x][y][z] = Max_Death_Counter;
+        }
+        else if(board[x][y][z] == -1){
+          matrix[x][y][z] = Max_Apple_Counter;
+        }
+        else if(board[x][y][z] == 1){
+          matrix[x][y][z] = Max_Head_Counter;
+        }
+        else if(board[x][y][z] > 1){
+          matrix[x][y][z] = 1;
+        }
+      }
+    }
   }
+}
+
+void gameLoop(){
 
   // Set move Direction from pressed buttons
   for (size_t i = 0; i < Button_Pins_Size; i++)
@@ -129,8 +153,12 @@ ISR(TIMER1_COMPA_vect){
     }
     break;
   case 6:
-    death = 1;
-    break;
+    newGame();
+    return;
+  }
+
+  if(death){
+    return;
   }
 
   if(board[head.x][head.y][head.z] < 0) // Check if head moven on apple cell.
@@ -180,10 +208,39 @@ ISR(TIMER1_COMPA_vect){
     board[applePos.x][applePos.y][applePos.z] = -1; // Save apple on board for next loop.
     newApple = 0;
   }
+}
 
-  if(death){
-    newGame();
+void drawMatrix(){
+  matrixCounter++;
+
+  for (size_t x = 0; x < Board_Size; x++)
+  {
+    for (size_t y = 0; y < Board_Size; y++)
+    {
+      for (size_t z = 0; z < Board_Size; z++)
+      {
+        bool data = matrix[x][y][z] == 1;
+        if(matrix[x][y][z] > 1){
+          data = (matrixCounter / matrix[x][y][z]) % 2 == 0;
+        }
+        int i = (y*3) +z;
+        digitalWrite(X_Pins[i], !data);
+      } 
+    }
+
+    digitalWrite(Y_Pins[x], 1);
+    delay(Matrix_Delay);
+    digitalWrite(Y_Pins[x], 0);
   }
+
+  if(matrixCounter >= Max_Matrix_Counter){
+    matrixCounter = 0;
+  }
+}
+
+ISR(TIMER1_COMPA_vect){
+  gameLoop();
+  pushMatrix();
 }
 
 void setup() {
@@ -218,57 +275,10 @@ void setup() {
   {
     pinMode(Button_Pins[i], INPUT);
   }
-  setAllLEDS(0);
 
-  newGame();
+  death = 1;
 }
 
-#define Max_Apple_Counter 200
-int appleCounter;
-bool appleFlag = 0;
-
-#define Max_Body_Counter 50
-int headCounter;
-bool headFlag = 0;
-
-#define Matrix_Delay 1
-void drawMatrix(){
-
-  appleCounter++;
-  if(appleCounter > Max_Apple_Counter){
-    appleFlag = !appleFlag;
-    appleCounter = 0;
-  }
-
-  headCounter++;
-  if(headCounter > Max_Body_Counter){
-    headFlag = !headFlag;
-    headCounter = 0;
-  }
-
-  for (size_t x = 0; x < Board_Size; x++)
-  {
-    for (size_t y = 0; y < Board_Size; y++)
-    {
-      for (size_t z = 0; z < Board_Size; z++)
-      {
-        bool data = board[x][y][z] > 0;
-        if(board[x][y][z] < 0){
-          data = appleFlag;
-        }
-        if(board[x][y][z] == 1){
-          data = headFlag;
-        }
-
-        int i = (y*3) +z;
-        digitalWrite(X_Pins[i], !data);
-      } 
-    }
-    digitalWrite(Y_Pins[x], 1);
-    delay(Matrix_Delay);
-    digitalWrite(Y_Pins[x], 0);
-  }
-}
 void loop() {
   drawMatrix();
 }
