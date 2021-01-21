@@ -58,33 +58,6 @@ void newGame(){
   death = 0; // Sets death to 0 so the game is running.
 }
 
-// Converts the bord data to the matrix wiith the corect blink timers.
-void pushMatrix(){
-  for (size_t x = 0; x < Board_Size; x++)
-  {
-    for (size_t y = 0; y < Board_Size; y++)
-    {
-      for (size_t z = 0; z < Board_Size; z++)
-      {
-        matrix[x][y][z] = 0;
-
-        if(death){
-           matrix[x][y][z] = Max_Death_Counter;
-        }
-        else if(board[x][y][z] == -1){
-          matrix[x][y][z] = Max_Apple_Counter;
-        }
-        else if(board[x][y][z] == 1){
-          matrix[x][y][z] = Max_Head_Counter;
-        }
-        else if(board[x][y][z] > 1){
-          matrix[x][y][z] = 1;
-        }
-      }
-    }
-  }
-}
-
 // The main game loop
 void gameLoop(){
 
@@ -158,7 +131,7 @@ void gameLoop(){
     }
     break;
   }
-
+  
   if(board[head.x][head.y][head.z] < 0) // Check if head moven on apple cell.
   { 
     snakeLenght++;
@@ -169,6 +142,7 @@ void gameLoop(){
     death = 1;
   }
   
+  // Check all Cells and update them
   emptiCellPointer = 0;
   for (size_t x = 0; x < Board_Size; x++)
   {
@@ -208,6 +182,34 @@ void gameLoop(){
   }
 }
 
+// Converts the bord data to the matrix wiith the corect blink timers.
+void pushMatrix(){
+  for (size_t x = 0; x < Board_Size; x++)
+  {
+    for (size_t y = 0; y < Board_Size; y++)
+    {
+      for (size_t z = 0; z < Board_Size; z++)
+      {
+        matrix[x][y][z] = 0;
+
+        if(death){
+           matrix[x][y][z] = Max_Death_Counter;
+        }
+        else if(board[x][y][z] == -1){
+          matrix[x][y][z] = Max_Apple_Counter;
+        }
+        else if(board[x][y][z] == 1){
+          matrix[x][y][z] = Max_Head_Counter;
+        }
+        else if(board[x][y][z] > 1){
+          matrix[x][y][z] = 1;
+        }
+      }
+    }
+  }
+}
+
+// Draws the matrix
 void drawMatrix(){
   matrixCounter++;
 
@@ -236,6 +238,7 @@ void drawMatrix(){
   }
 }
 
+// The interupt function for the game loop
 ISR(TIMER1_COMPA_vect){
   gameLoop();
   pushMatrix();
@@ -261,6 +264,7 @@ void setup() {
 
   Serial.begin(9600);
 
+  // Set pinmodes
   for (size_t i = 0; i < X_Pins_Size; i++)
   {
     pinMode(X_Pins[i], OUTPUT);
@@ -274,9 +278,11 @@ void setup() {
     pinMode(Button_Pins[i], INPUT);
   }
 
+  // Start the game as death.
   death = 1;
 }
 
+// The loop only calls drawMartix the gameloop is called in the interupt loop.
 void loop() {
   drawMatrix();
 }
